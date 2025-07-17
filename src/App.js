@@ -17,6 +17,7 @@ import CloseIcon from "@mui/icons-material/Close";
 const App = () => {
   let [user, setUser] = useState("ProjectM");
   let [codeBlocks, setCodeBlocks] = useState([]);
+  let [existingNames, setExistingNames] = useState(new Set());
   let [modalOpen, setModalOpen] = useState(false);
   let [workflowItems, setWorkflowItems] = useState([]);
   let [selectedBlock, setSelectedBlock] = useState(null);
@@ -35,8 +36,11 @@ const App = () => {
 
         let latestBlocksMap = {};
 
+        let names = new Set();
+
         data.forEach((block) => {
           const name = block.codeBlockName;
+          names.add(name);
           if (
             !latestBlocksMap[name] ||
             block.version > latestBlocksMap[name].version
@@ -54,6 +58,7 @@ const App = () => {
         }));
 
         setCodeBlocks(mapped);
+        setExistingNames(names);
       } catch (err) {
         console.error("Error fetching code blocks:", err);
       }
@@ -64,6 +69,11 @@ const App = () => {
 
   let handleAddCodeBlock = async (block) => {
     try {
+      if (existingNames.has(block.title)) {
+        alert(`A code block with the name "${block.title}" already exists.`);
+        return;
+      }
+
       let res = await fetch(
         "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions"
       );
@@ -74,7 +84,7 @@ const App = () => {
         .reduce((max, b) => Math.max(max, b.version || 0), 0);
 
       let payload = {
-        codeBlockName: block.title,
+        codeBlockName: block.title.trim(),
         createdBy: block.updated_by,
         code: { raw: block.code },
         version: latestVersion + 1,
@@ -395,6 +405,7 @@ const App = () => {
         onClose={() => setModalOpen(false)}
         onSave={handleAddCodeBlock}
         currentUser={user}
+        existingNames={existingNames}
       />
     </Box>
   );
