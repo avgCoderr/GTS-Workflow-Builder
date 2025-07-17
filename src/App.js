@@ -32,13 +32,27 @@ const App = () => {
           "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions"
         );
         let data = await res.json();
-        let mapped = data.map((block) => ({
+
+        let latestBlocksMap = {};
+
+        data.forEach((block) => {
+          const name = block.codeBlockName;
+          if (
+            !latestBlocksMap[name] ||
+            block.version > latestBlocksMap[name].version
+          ) {
+            latestBlocksMap[name] = block;
+          }
+        });
+
+        let mapped = Object.values(latestBlocksMap).map((block) => ({
           title: block.codeBlockName,
           type: "code_block",
           code: block.code?.raw || "",
           updated_by: block.createdBy,
           updated_at: block.createdAt,
         }));
+
         setCodeBlocks(mapped);
       } catch (err) {
         console.error("Error fetching code blocks:", err);
