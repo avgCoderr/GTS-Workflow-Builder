@@ -341,14 +341,16 @@ const App = () => {
                 }}
               />
             ))}
-            <Button
-              variant="contained"
-              onClick={() => setModalOpen(true)}
-              sx={{ height: 80, mt: 2 }}
-              fullWidth
-            >
-              + Add Code Block
-            </Button>
+            {user === "SolutionsE" && (
+              <Button
+                variant="contained"
+                onClick={() => setModalOpen(true)}
+                sx={{ height: 80, mt: 2 }}
+                fullWidth
+              >
+                + Add Code Block
+              </Button>
+            )}
           </Box>
         </Box>
       </Box>
