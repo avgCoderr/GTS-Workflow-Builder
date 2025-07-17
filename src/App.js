@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -14,32 +14,30 @@ import CodeBlockPreview from "./components/CodeBlockPreview";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 
-import { useEffect } from "react";
-
 const App = () => {
-  const [user, setUser] = useState("ProjectM");
-  const [codeBlocks, setCodeBlocks] = useState([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [workflowItems, setWorkflowItems] = useState([]);
-  const [selectedBlock, setSelectedBlock] = useState(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewSource, setPreviewSource] = useState("tray");
-  const [trayOpen, setTrayOpen] = useState(false);
-  const [selectedBlockType, setSelectedBlockType] = useState(null);
+  let [user, setUser] = useState("ProjectM");
+  let [codeBlocks, setCodeBlocks] = useState([]);
+  let [modalOpen, setModalOpen] = useState(false);
+  let [workflowItems, setWorkflowItems] = useState([]);
+  let [selectedBlock, setSelectedBlock] = useState(null);
+  let [previewOpen, setPreviewOpen] = useState(false);
+  let [previewSource, setPreviewSource] = useState("tray");
+  let [trayOpen, setTrayOpen] = useState(false);
+  let [selectedBlockType, setSelectedBlockType] = useState(null);
 
   useEffect(() => {
-    const fetchBlocks = async () => {
+    let fetchBlocks = async () => {
       try {
-        const res = await fetch(
-          "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks"
+        let res = await fetch(
+          "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions"
         );
-        const data = await res.json();
-        const mapped = data.map((block) => ({
-          title: block.title,
+        let data = await res.json();
+        let mapped = data.map((block) => ({
+          title: block.codeBlockName,
           type: "code_block",
           code: block.code?.raw || "",
-          updated_by: block.updated_by,
-          updated_at: block.updated_at,
+          updated_by: block.createdBy,
+          updated_at: block.createdAt,
         }));
         setCodeBlocks(mapped);
       } catch (err) {
@@ -50,18 +48,26 @@ const App = () => {
     fetchBlocks();
   }, []);
 
-  const handleAddCodeBlock = async (block) => {
-    const payload = {
-      title: block.title,
-      name: block.updated_by,
-      code: { raw: block.code },
-      updated_by: block.updated_by,
-      updated_at: new Date().toISOString(),
-    };
-
+  let handleAddCodeBlock = async (block) => {
     try {
-      const res = await fetch(
-        "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks",
+      let res = await fetch(
+        "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions"
+      );
+      let existingBlocks = await res.json();
+
+      let latestVersion = existingBlocks
+        .filter((b) => b.codeBlockName === block.title)
+        .reduce((max, b) => Math.max(max, b.version || 0), 0);
+
+      let payload = {
+        codeBlockName: block.title,
+        createdBy: block.updated_by,
+        code: { raw: block.code },
+        version: latestVersion + 1,
+      };
+
+      let postRes = await fetch(
+        "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -69,16 +75,16 @@ const App = () => {
         }
       );
 
-      const data = await res.json();
+      let data = await postRes.json();
 
       setCodeBlocks((prev) => [
         ...prev,
         {
-          title: data.title,
+          title: data.codeBlockName,
           type: "code_block",
           code: data.code?.raw || "",
-          updated_by: data.updated_by,
-          updated_at: data.updated_at,
+          updated_by: data.createdBy,
+          updated_at: data.createdAt,
         },
       ]);
     } catch (err) {
@@ -86,18 +92,18 @@ const App = () => {
     }
   };
 
-  const handleDeleteBlock = async (title) => {
+  let handleDeleteBlock = async (title) => {
     try {
-      const res = await fetch(
-        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks?search=${title}`
+      let res = await fetch(
+        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions?search=${title}`
       );
-      const results = await res.json();
-      const target = results[0];
+      let results = await res.json();
+      let target = results[0];
 
       if (!target?.id) return;
 
       await fetch(
-        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks/${target.id}`,
+        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions/${target.id}`,
         {
           method: "DELETE",
         }
@@ -109,36 +115,28 @@ const App = () => {
     }
   };
 
-  const handleUpdateBlock = async (updatedBlock) => {
+  let handleUpdateBlock = async (updatedBlock) => {
     try {
-      const payload = {
-        title: updatedBlock.title,
+      let res = await fetch(
+        "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions"
+      );
+      let existingBlocks = await res.json();
+
+      let latestVersion = existingBlocks
+        .filter((b) => b.codeBlockName === updatedBlock.title)
+        .reduce((max, b) => Math.max(max, b.version || 0), 0);
+
+      let payload = {
+        codeBlockName: updatedBlock.title,
+        createdBy: updatedBlock.updated_by,
         code: { raw: updatedBlock.code },
-        name: updatedBlock.updated_by,
-        updated_by: updatedBlock.updated_by,
-        updated_at: updatedBlock.updated_at,
+        version: latestVersion + 1,
       };
 
-      const blockToUpdate = codeBlocks.find(
-        (b) => b.title === updatedBlock.title
-      );
-      if (!blockToUpdate) return;
-
-      const res = await fetch(
-        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks?search=${updatedBlock.title}`,
-        {
-          method: "GET",
-        }
-      );
-      const results = await res.json();
-      const target = results[0];
-
-      if (!target?.id) return;
-
       await fetch(
-        `https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks/${target.id}`,
+        "https://6879061063f24f1fdca08636.mockapi.io/workflow/code_blocks_versions",
         {
-          method: "PUT",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         }
@@ -154,19 +152,19 @@ const App = () => {
     }
   };
 
-  const handleBlockSelect = (block) => {
+  let handleBlockSelect = (block) => {
     setSelectedBlockType(block);
     setTrayOpen(false);
   };
 
-  const handleWorkflowBlockRemove = (index) => {
-    const confirm = window.confirm();
+  let handleWorkflowBlockRemove = (index) => {
+    let confirm = window.confirm();
     if (!confirm) return;
 
     setWorkflowItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleWorkflowClick = (event) => {
+  let handleWorkflowClick = (event) => {
     if (selectedBlockType) {
       setWorkflowItems((prev) => [
         ...prev,
@@ -180,7 +178,7 @@ const App = () => {
     }
   };
 
-  const handleDrop = (item) => {
+  let handleDrop = (item) => {
     if (item.source === "tray") {
       setWorkflowItems((prev) => [
         ...prev,
